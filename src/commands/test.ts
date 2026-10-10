@@ -1,5 +1,6 @@
 import { recordTelemetryTunnelOpened } from '../lib/telemetry.js';
 import { parseLoopbackTargetUrl } from '../lib/local-target.js';
+import { requireId } from '../lib/args.js';
 import {
   resolveEnvironmentRunTarget,
   readEnvironmentPreflight,
@@ -1919,7 +1920,7 @@ export async function runPlanPut(
   deps: TestDeps = {},
 ): Promise<CliPutPlanStepsResponse> {
   assertIdempotencyKey(opts.idempotencyKey);
-  requireNonEmpty('test-id', opts.testId);
+  requireId('test-id', opts.testId);
   requireNonEmpty('steps', opts.stepsFile);
 
   if (
@@ -2316,7 +2317,7 @@ export async function runUpdate(
   deps: TestDeps = {},
 ): Promise<CliUpdateTestResponse> {
   assertIdempotencyKey(opts.idempotencyKey);
-  requireNonEmpty('test-id', opts.testId);
+  requireId('test-id', opts.testId);
   // P1-3: client-side length checks matching server limits.
   if (opts.name !== undefined && opts.name.trim().length === 0) {
     throw localValidationError(
@@ -2463,7 +2464,7 @@ export async function runDelete(
   deps: TestDeps = {},
 ): Promise<CliDeleteTestResponse> {
   assertIdempotencyKey(opts.idempotencyKey);
-  requireNonEmpty('test-id', opts.testId);
+  requireId('test-id', opts.testId);
 
   if (!opts.confirm && !opts.dryRun) {
     throw ApiError.fromEnvelope({
@@ -5259,6 +5260,7 @@ interface GetOptions extends CommonOptions {
 }
 
 export async function runGet(opts: GetOptions, deps: TestDeps = {}): Promise<CliTest> {
+  requireId('test-id', opts.testId);
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
 
@@ -5298,6 +5300,7 @@ interface CodeGetOptions extends CommonOptions {
  * any, is left untouched.
  */
 export async function runCodeGet(opts: CodeGetOptions, deps: TestDeps = {}): Promise<CliTestCode> {
+  requireId('test-id', opts.testId);
   // Dry-run: no fetch, no fs. Print the canned shape to stdout and, if
   // the user passed `--out`, log on stderr what would have been written.
   // We deliberately do NOT validate the `--out` path here in dry-run —
@@ -5468,7 +5471,7 @@ export async function runCodePut(
   deps: TestDeps = {},
 ): Promise<CliPutTestCodeResponse> {
   assertIdempotencyKey(opts.idempotencyKey);
-  requireNonEmpty('test-id', opts.testId);
+  requireId('test-id', opts.testId);
   requireNonEmpty('code-file', opts.codeFile);
   assertPythonCodeFile(opts.codeFile);
 
@@ -6248,6 +6251,7 @@ export async function runSteps(
   opts: StepsOptions,
   deps: TestDeps = {},
 ): Promise<Page<CliTestStep>> {
+  requireId('test-id', opts.testId);
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
   const stderrFn = deps.stderr ?? ((line: string) => process.stderr.write(`${line}\n`));
@@ -6393,6 +6397,7 @@ export async function runResult(
   opts: ResultOptions,
   deps: TestDeps = {},
 ): Promise<CliLatestResult> {
+  requireId('test-id', opts.testId);
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
   const stderrFn = deps.stderr ?? ((line: string) => process.stderr.write(`${line}\n`));
@@ -6545,6 +6550,7 @@ export async function runResultHistory(
   opts: ResultHistoryOptions,
   deps: TestDeps = {},
 ): Promise<ListRunsResponse> {
+  requireId('test-id', opts.testId);
   const out = makeOutput(opts.output, deps);
 
   // Validate page size BEFORE makeClient: local validation must win over
@@ -6786,6 +6792,7 @@ export async function runFailureSummary(
   opts: FailureSummaryOptions,
   deps: TestDeps = {},
 ): Promise<CliFailureSummary> {
+  requireId('test-id', opts.testId);
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
 
@@ -6847,6 +6854,7 @@ export async function runFailureGet(
   opts: FailureGetOptions,
   deps: TestDeps = {},
 ): Promise<FailureGetResult> {
+  requireId('test-id', opts.testId);
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
 
@@ -7711,6 +7719,7 @@ export async function runTestRun(
   deps: TestDeps = {},
 ): Promise<TriggerRunResponse | RunResponse> {
   assertIdempotencyKey(opts.idempotencyKey);
+  requireId('test-id', opts.testId);
   const environment = normalizeEnvironmentName(opts.environment);
 
   // --local resolution runs FIRST and touches nothing: every refusal below
@@ -9014,6 +9023,7 @@ export async function runTestCancel(
   opts: RunTestCancelOptions,
   deps: TestDeps = {},
 ): Promise<CancelRunResponse | CliCancelSummary> {
+  for (const runId of opts.runIds) requireId('run-id', runId);
   const stderrFn = deps.stderr ?? ((line: string) => process.stderr.write(`${line}\n`));
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
@@ -11755,6 +11765,13 @@ export async function runTestRerun(
   deps: TestDeps = {},
 ): Promise<RerunResponse | BatchRerunResponse | undefined> {
   assertIdempotencyKey(opts.idempotencyKey);
+  // Only user-supplied ids are guarded here. `--all` recurses into this
+  // function with `batchResolved: true` and ids resolved from the project's
+  // test list — those are server-provided, not typed positionals, so a
+  // missing/empty value there is a wire-contract problem, not user error.
+  if (!opts.all && !opts.batchResolved) {
+    for (const testId of opts.testIds) requireId('test-id', testId);
+  }
   validateRerunOptions({ ...opts, wait: opts.wait || (!opts.dryRun && !opts.noWait) });
   if (opts.dryRun || deps.environmentTunnel || opts.testIds.length === 0 || opts.all)
     return runTestRerunCore(opts, deps);
@@ -13578,7 +13595,7 @@ export interface ArtifactGetResult {
 }
 
 export function resolveDefaultArtifactDir(runId: string, cwd: string = process.cwd()): string {
-  requireNonEmpty('run-id', runId);
+  requireId('run-id', runId);
   const windowsNormalizedSegment = runId.replace(/[ .]+$/u, '');
   if (
     windowsNormalizedSegment === '' ||
@@ -15220,9 +15237,7 @@ export async function runFlaky(
   const stderrFn = deps.stderr ?? ((line: string) => process.stderr.write(`${line}\n`));
   const out = makeOutput(opts.output, deps);
 
-  if (typeof opts.testId !== 'string' || opts.testId.length === 0) {
-    throw localValidationError('test-id', 'is required');
-  }
+  requireId('test-id', opts.testId);
   if (!Number.isInteger(opts.runs) || opts.runs < 1 || opts.runs > MAX_FLAKY_RUNS) {
     throw localValidationError('runs', `must be an integer between 1 and ${MAX_FLAKY_RUNS}`);
   }

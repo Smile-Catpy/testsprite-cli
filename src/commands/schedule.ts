@@ -6,6 +6,7 @@ import {
   parseRequestTimeoutFlag,
   type CommonOptions as FactoryCommonOptions,
 } from '../lib/client-factory.js';
+import { requireId } from '../lib/args.js';
 import { resolveProfileName } from '../lib/config.js';
 import { ApiError, InterruptError } from '../lib/errors.js';
 import type { FetchImpl, HttpClient } from '../lib/http.js';
@@ -198,6 +199,7 @@ export async function runList(
 // ---------------------------------------------------------------------------
 
 export async function runGet(opts: GetOptions, deps: ScheduleDeps = {}): Promise<CliSchedule> {
+  requireId('schedule-id', opts.scheduleId);
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
 
@@ -389,6 +391,7 @@ export async function runUpdate(
   const stderr = deps.stderr ?? ((line: string) => process.stderr.write(`${line}\n`));
 
   assertIdempotencyKey(opts.idempotencyKey);
+  requireId('schedule-id', opts.scheduleId);
 
   if (opts.pause && opts.resume) {
     throw localValidationError('--pause and --resume cannot be combined');
@@ -471,6 +474,7 @@ export async function runDelete(
   const stderr = deps.stderr ?? ((line: string) => process.stderr.write(`${line}\n`));
 
   assertIdempotencyKey(opts.idempotencyKey);
+  requireId('schedule-id', opts.scheduleId);
 
   if (!opts.confirm && !opts.dryRun) {
     throw ApiError.fromEnvelope({
@@ -511,6 +515,7 @@ export async function runRunList(
   opts: RunListOptions,
   deps: ScheduleDeps = {},
 ): Promise<ScheduleRunListResponse> {
+  requireId('schedule-id', opts.scheduleId);
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
 

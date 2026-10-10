@@ -10,6 +10,7 @@ import {
   resolveRequestTimeoutMs,
   type CommonOptions as FactoryCommonOptions,
 } from '../lib/client-factory.js';
+import { requireId } from '../lib/args.js';
 import { resolveProfileName } from '../lib/config.js';
 import { ApiError, InterruptError, RequestTimeoutError } from '../lib/errors.js';
 import type { FetchImpl, HttpClient } from '../lib/http.js';
@@ -201,6 +202,7 @@ interface GetOptions extends CommonOptions {
 }
 
 export async function runGet(opts: GetOptions, deps: ProjectDeps = {}): Promise<CliProject> {
+  requireId('project-id', opts.projectId);
   const out = makeOutput(opts.output, deps);
   const client = makeClient(opts, deps);
 
@@ -706,9 +708,7 @@ export async function runDelete(
   deps: ProjectDeps = {},
 ): Promise<CliDeleteProjectResponse> {
   assertIdempotencyKey(opts.idempotencyKey);
-  if (opts.projectId === undefined || opts.projectId.trim().length === 0) {
-    throw localValidationError('<project-id> is required');
-  }
+  requireId('project-id', opts.projectId);
 
   if (!opts.confirm && !opts.dryRun) {
     throw ApiError.fromEnvelope({
