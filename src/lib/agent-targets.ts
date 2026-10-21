@@ -154,6 +154,17 @@ function isPlainScalarSafe(value: string): boolean {
   // Control characters (newlines, tabs) cannot appear in a single-line scalar.
   // eslint-disable-next-line no-control-regex
   if (/[\x00-\x1f\x7f]/.test(value)) return false;
+  // A plain scalar resolving to a non-string type (boolean, null, number,
+  // timestamp) would violate this helper's string contract, so quote it.
+  if (/^(?:~|null|true|false|yes|no|on|off)$/i.test(value)) return false;
+  if (
+    /^[-+]?(?:0[xX][0-9a-fA-F_]+|0[oO][0-7_]+|0[bB][01_]+|\d[\d_]*(?:\.[\d_]*)?(?:[eE][-+]?\d+)?|\.(?:inf|nan))$/i.test(
+      value,
+    )
+  ) {
+    return false;
+  }
+  if (/^\d{4}-\d{1,2}-\d{1,2}(?:$|[Tt ])/.test(value)) return false;
   return true;
 }
 

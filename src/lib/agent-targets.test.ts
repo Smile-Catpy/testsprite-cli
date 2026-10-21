@@ -24,6 +24,7 @@ import {
   renderForTarget,
   renderLegacyOwnFileWithMarker,
   renderOwnFileWithMarker,
+  yamlScalar,
   type AgentTarget,
 } from './agent-targets.js';
 
@@ -1062,6 +1063,28 @@ describe('own-file frontmatter is valid YAML for every skill', () => {
       expect(renderForTarget('claude', skill).content).toContain(
         `description: ${SKILLS[skill]!.description}`,
       );
+    }
+  });
+
+  it('quotes values YAML would resolve to a non-string type', () => {
+    for (const value of [
+      'true',
+      'False',
+      'null',
+      '~',
+      '123',
+      '-1.5e3',
+      '0x1f',
+      '.inf',
+      '2026-10-21',
+    ]) {
+      expect(yamlScalar(value)).toBe(JSON.stringify(value));
+    }
+  });
+
+  it('leaves ordinary one-line text as a plain scalar', () => {
+    for (const value of ['TestSprite verification', '123abc', 'on call', 'v0.15.0']) {
+      expect(yamlScalar(value)).toBe(value);
     }
   });
 
